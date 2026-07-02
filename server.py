@@ -57,7 +57,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
         return False
 
     def serve_static(self, file_path, content_type):
-        full_path = os.path.join(os.path.dirname(__file__), 'public', file_path)
+        full_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'public', file_path))
         if not os.path.exists(full_path) or os.path.isdir(full_path):
             # Fallback to index.html for SPA behavior
             full_path = os.path.join(os.path.dirname(__file__), 'public', 'index.html')
