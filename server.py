@@ -98,7 +98,12 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(json.dumps({"ip": get_local_ip(), "port": PORT}).encode('utf-8'))
+            is_render = os.environ.get('RENDER') == 'true'
+            self.wfile.write(json.dumps({
+                "ip": get_local_ip(),
+                "port": PORT,
+                "isRender": is_render
+            }).encode('utf-8'))
             return
 
         elif path == '/api/poll/active':

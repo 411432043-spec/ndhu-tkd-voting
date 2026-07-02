@@ -251,7 +251,19 @@
       try {
         const res = await fetch('/api/server-info');
         const data = await res.json();
-        const serverUrl = `http://${data.ip}:${data.port}`;
+        
+        let serverUrl = window.location.origin;
+
+        // If running locally (localhost) and not on cloud (isRender is false)
+        if (!data.isRender && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+          serverUrl = `http://${data.ip}:${data.port}`;
+        } else {
+          // If on Render or public server, remove local Wi-Fi hints
+          const hintText = document.querySelector('.qr-container p');
+          if (hintText) {
+            hintText.innerHTML = '請讓幹部掃描下方二維碼進入投票畫面：';
+          }
+        }
         
         document.getElementById('server-url-display').innerText = serverUrl;
         
