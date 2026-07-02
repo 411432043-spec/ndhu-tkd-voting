@@ -6,7 +6,7 @@ import socket
 import urllib.parse
 import sys
 
-PORT = 3000
+PORT = int(os.environ.get('PORT', 3000))
 
 # In-memory Database
 polls = [
