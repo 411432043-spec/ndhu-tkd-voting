@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東華跆拳社 匿名投票後台</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-container" style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+        <img src="/logo.png" alt="東華跆拳休閒運動社" style="max-width: 90%; height: auto; max-height: 100px; object-fit: contain;">
+      </div>
+      <div class="subtitle">會議投票管理後台</div>
+    </header>
+
+    <main id="main-content">
+      <!-- Login Screen -->
+      <div class="card login-card" id="login-card">
+        <h2 style="text-align: center; margin-bottom: 1.5rem; font-size: 1.4rem;">後台登入</h2>
+        <form id="login-form">
+          <div class="form-group">
+            <label for="username">帳號</label>
+            <input type="text" id="username" required placeholder="請輸入後台管理帳號">
+          </div>
+          <div class="form-group">
+            <label for="password">密碼</label>
+            <input type="password" id="password" required placeholder="請輸入密碼">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem;">
+            登入管理系統
+          </button>
+        </form>
+      </div>
+
+      <!-- Main Dashboard (Hidden by default) -->
+      <div id="dashboard" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+          <h2 style="font-size: 1.5rem;">管理面板</h2>
+          <button class="btn btn-secondary" onclick="logout()">登出</button>
+        </div>
+
+        <div class="admin-grid">
+          <!-- Left Column: Poll Management & Results -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <!-- Active Poll Control & Results -->
+            <div class="card">
+              <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+                <span>📊 當前啟用投票結果</span>
+                <span id="active-poll-badge" class="status-badge">載入中</span>
+              </h3>
+
+              <div id="results-container">
+                <h2 id="active-title" style="font-size: 1.25rem; margin-bottom: 0.5rem;">未設定啟用投票</h2>
+                <div id="results-stats" style="margin-bottom: 1.5rem; color: var(--text-muted);">
+                  總投票人數: <span id="total-voters" style="color: var(--color-primary); font-weight: bold;">0</span> 人
+                </div>
+
+                <div id="results-bars-list">
+                  <!-- Bars render here -->
+                </div>
+              </div>
+
+              <!-- Quick Status Controls -->
+              <div style="display: flex; gap: 8px; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                <button class="btn btn-secondary" onclick="setPollStatus('draft')">準備中</button>
+                <button class="btn btn-primary" onclick="setPollStatus('open')">開啟投票</button>
+                <button class="btn btn-accent" onclick="setPollStatus('closed')">關閉通道</button>
+                <button class="btn btn-danger" onclick="resetActivePoll()" style="margin-left: auto;">清空選票</button>
+              </div>
+            </div>
+
+            <!-- Create New Poll -->
+            <div class="card">
+              <h3 style="margin-bottom: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                ➕ 建立新投票主題
+              </h3>
+              <form id="create-poll-form">
+                <div class="form-group">
+                  <label for="poll-title-input">投票題目 (必填)</label>
+                  <input type="text" id="poll-title-input" required placeholder="例：是否同意本學期增加社團聚餐？">
+                </div>
+                <div class="form-group">
+                  <label for="poll-desc-input">補充說明 (選填)</label>
+                  <textarea id="poll-desc-input" rows="2" placeholder="對該主題的詳細說明、表決規則等..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                  <label>投票選項</label>
+                  <div id="new-options-container">
+                    <div class="option-input-row">
+                      <input type="text" required placeholder="選項一" class="poll-option-input">
+                    </div>
+                    <div class="option-input-row">
+                      <input type="text" required placeholder="選項二" class="poll-option-input">
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-secondary" onclick="addOptionInput()" style="padding: 0.5rem 1rem; font-size: 0.9rem; margin-top: 0.5rem;">
+                    ＋ 增加選項
+                  </button>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">建立並列入清單</button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Right Column: System Status, Connection, Poll List -->
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            
+            <!-- Connection & QR -->
+            <div class="card">
+              <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                📶 幹部連線資訊
+              </h3>
+              <div class="qr-container">
+                <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 1rem;">
+                  請讓幹部連上同一 Wi-Fi，並掃描下方二維碼進入投票畫面：
+                </p>
+                <img id="qrcode-img" src="" alt="QR Code Loading..." style="background: white; padding: 10px; border-radius: 12px; width: 180px; height: 180px; margin-bottom: 1rem;">
+                <div>連結網址：</div>
+                <div class="ip-address" id="server-url-display">http://...</div>
+              </div>
+            </div>
+
+            <!-- Poll List -->
+            <div class="card">
+              <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                📋 所有投票主題
+              </h3>
+              <div id="polls-list" style="max-height: 350px; overflow-y: auto; padding-right: 4px;">
+                <!-- List of historical polls -->
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 國立東華大學跆拳休閒運動社. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    let adminToken = localStorage.getItem('ndhu_admin_token');
+    let resultsInterval = null;
+
+    // Toast show helper
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toastText.innerText = message;
+      if (isError) {
+        toast.classList.add('error');
+      } else {
+        toast.classList.remove('error');
+      }
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Dynamic Options Form
+    function addOptionInput() {
+      const container = document.getElementById('new-options-container');
+      const count = container.querySelectorAll('.option-input-row').length + 1;
+      
+      const row = document.createElement('div');
+      row.className = 'option-input-row';
+      row.innerHTML = `
+        <input type="text" required placeholder="選項 ${count}" class="poll-option-input">
+        <button type="button" onclick="this.parentElement.remove(); updateOptionPlaceholders();">移除</button>
+      `;
+      container.appendChild(row);
+    }
+
+    function updateOptionPlaceholders() {
+      const inputs = document.querySelectorAll('.poll-option-input');
+      inputs.forEach((input, idx) => {
+        input.placeholder = `選項 ${idx + 1}`;
+      });
+    }
+
+    // Login Form Submit
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await response.json();
+        if (response.ok && data.success) {
+          adminToken = data.token;
+          localStorage.setItem('ndhu_admin_token', adminToken);
+          showToast('登入成功！');
+          initDashboard();
+        } else {
+          showToast(data.error || '帳密錯誤！', true);
+        }
+      } catch (err) {
+        showToast('無法連線至伺服器！', true);
+      }
+    });
+
+    function logout() {
+      adminToken = null;
+      localStorage.removeItem('ndhu_admin_token');
+      document.getElementById('login-card').style.display = 'block';
+      document.getElementById('dashboard').style.display = 'none';
+      if (resultsInterval) clearInterval(resultsInterval);
+    }
+
+    // Initial check on page load
+    if (adminToken) {
+      initDashboard();
+    }
+
+    function initDashboard() {
+      document.getElementById('login-card').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      
+      fetchServerInfo();
+      fetchPolls();
+      fetchResults();
+      
+      if (resultsInterval) clearInterval(resultsInterval);
+      resultsInterval = setInterval(() => {
+        fetchResults();
+        fetchPolls(); // Keep list synced too
+      }, 1500);
+    }
+
+    // Fetch local network IP and generate QR Code
+    async function fetchServerInfo() {
+      try {
+        const res = await fetch('/api/server-info');
+        const data = await res.json();
+        const serverUrl = `http://${data.ip}:${data.port}`;
+        
+        document.getElementById('server-url-display').innerText = serverUrl;
+        
+        // Generate QR code using public dynamic api
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(serverUrl)}`;
+        document.getElementById('qrcode-img').src = qrUrl;
+      } catch (e) {
+        console.error('Failed to load server connection details');
+      }
+    }
+
+    // Get list of all polls
+    async function fetchPolls() {
+      try {
+        const response = await fetch('/api/admin/polls', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        if (response.status === 401) return logout();
+        const data = await response.json();
+
+        const container = document.getElementById('polls-list');
+        container.innerHTML = '';
+
+        data.polls.forEach(p => {
+          const isActive = p.id === data.activePollId;
+          const statusText = p.status === 'open' ? '投票中' : p.status === 'closed' ? '已結束' : '準備中';
+          const statusClass = p.status;
+
+          const item = document.createElement('div');
+          item.className = 'poll-item';
+          item.style.borderColor = isActive ? 'var(--color-primary)' : 'var(--border-color)';
+          item.innerHTML = `
+            <div class="poll-item-info">
+              <h4>${p.title}</h4>
+              <span class="status-badge ${statusClass}">${statusText}</span>
+              ${isActive ? '<span style="color: var(--color-primary); font-size: 0.8rem; font-weight: bold; margin-left: 8px;">★ 啟用中</span>' : ''}
+            </div>
+            <div class="poll-item-actions">
+              ${!isActive ? `<button class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.85rem;" onclick="setActivePoll('${p.id}')">設為啟用</button>` : ''}
+              <button class="btn btn-danger" style="padding: 6px 12px; font-size: 0.85rem;" onclick="deletePoll('${p.id}')">刪除</button>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Get detailed results of active poll
+    async function fetchResults() {
+      try {
+        const response = await fetch('/api/admin/results', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        if (response.status === 401) return logout();
+        const data = await response.json();
+
+        // Update active badge status
+        const activePollResponse = await fetch(`/api/poll/active`);
+        const activePollData = await activePollResponse.json();
+        const badge = document.getElementById('active-poll-badge');
+        
+        if (activePollData.poll) {
+          const status = activePollData.poll.status;
+          badge.className = `status-badge ${status}`;
+          badge.innerText = status === 'open' ? '投票中' : status === 'closed' ? '已結束' : '準備中';
+        } else {
+          badge.className = 'status-badge draft';
+          badge.innerText = '無啟用項目';
+        }
+
+        document.getElementById('active-title').innerText = data.title;
+        document.getElementById('total-voters').innerText = data.totalVotes;
+
+        const listContainer = document.getElementById('results-bars-list');
+        listContainer.innerHTML = '';
+
+        // Find max votes to highlight the leader
+        const maxVotes = Math.max(...data.votes);
+
+        data.options.forEach((opt, idx) => {
+          const voteCount = data.votes[idx];
+          const percent = data.totalVotes > 0 ? Math.round((voteCount / data.totalVotes) * 100) : 0;
+          const isHighest = voteCount === maxVotes && maxVotes > 0;
+
+          const row = document.createElement('div');
+          row.className = 'result-option';
+          row.innerHTML = `
+            <div class="result-header">
+              <span>${opt}</span>
+              <span><strong>${voteCount} 票</strong> (${percent}%)</span>
+            </div>
+            <div class="result-bar-bg">
+              <div class="result-bar-fill ${isHighest ? 'highest' : ''}" style="width: ${percent}%"></div>
+            </div>
+          `;
+          listContainer.appendChild(row);
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    // Create a new poll
+    document.getElementById('create-poll-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const title = document.getElementById('poll-title-input').value;
+      const description = document.getElementById('poll-desc-input').value;
+      
+      const inputs = document.querySelectorAll('.poll-option-input');
+      const options = Array.from(inputs).map(i => i.value).filter(v => v.trim() !== '');
+
+      try {
+        const response = await fetch('/api/admin/polls', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ title, description, options })
+        });
+
+        if (response.ok) {
+          showToast('建立成功！');
+          document.getElementById('create-poll-form').reset();
+          
+          // Reset option fields back to just two
+          const container = document.getElementById('new-options-container');
+          container.innerHTML = `
+            <div class="option-input-row"><input type="text" required placeholder="選項一" class="poll-option-input"></div>
+            <div class="option-input-row"><input type="text" required placeholder="選項二" class="poll-option-input"></div>
+          `;
+          
+          fetchPolls();
+        } else {
+          const err = await response.json();
+          showToast(err.error || '建立失敗！', true);
+        }
+      } catch (err) {
+        showToast('連線失敗！', true);
+      }
+    });
+
+    // Control APIs
+    async function setPollStatus(status) {
+      // Get current active poll ID
+      try {
+        const pollsRes = await fetch('/api/admin/polls', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const data = await pollsRes.json();
+        const activeId = data.activePollId;
+        
+        if (!activeId) {
+          showToast('目前無啟用中的投票主題，請先設定！', true);
+          return;
+        }
+
+        const response = await fetch(`/api/admin/polls/${activeId}/status`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ status })
+        });
+
+        if (response.ok) {
+          showToast(`投票狀態已更改！`);
+          fetchResults();
+          fetchPolls();
+        } else {
+          showToast('修改失敗！', true);
+        }
+      } catch (err) {
+        showToast('連線失敗！', true);
+      }
+    }
+
+    async function setActivePoll(id) {
+      try {
+        const response = await fetch(`/api/admin/polls/${id}/active`, {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        if (response.ok) {
+          showToast('已切換當前啟用投票！');
+          fetchPolls();
+          fetchResults();
+        }
+      } catch (e) {
+        showToast('切換失敗！', true);
+      }
+    }
+
+    async function deletePoll(id) {
+      if (!confirm('確定要刪除此投票題目嗎？將會永久刪除所有投票紀錄！')) return;
+      try {
+        const response = await fetch(`/api/admin/polls/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        if (response.ok) {
+          showToast('刪除成功！');
+          fetchPolls();
+          fetchResults();
+        }
+      } catch (e) {
+        showToast('刪除失敗！', true);
+      }
+    }
+
+    async function resetActivePoll() {
+      if (!confirm('警告：確定要清除此投票的所有已投選票與選民紀錄嗎？這無法復原！')) return;
+      try {
+        const pollsRes = await fetch('/api/admin/polls', {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+        const data = await pollsRes.json();
+        const activeId = data.activePollId;
+
+        const response = await fetch(`/api/admin/polls/${activeId}/reset`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+
+        if (response.ok) {
+          showToast('選票已成功清空！');
+          fetchResults();
+        }
+      } catch (e) {
+        showToast('清空失敗！', true);
+      }
+    }
+  </script>
+</body>
+</html>

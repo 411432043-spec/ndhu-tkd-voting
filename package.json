@@ -1,0 +1,13 @@
+{
+  "name": "ndhu-tkd-voting",
+  "version": "1.0.0",
+  "description": "Anonymous voting system for Dong Hwa Taekwondo Club",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}

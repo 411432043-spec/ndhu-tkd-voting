@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>東華跆拳社 匿名投票系統</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo-container" style="display: flex; justify-content: center; margin-bottom: 0.5rem;">
+        <img src="/logo.png" alt="東華跆拳休閒運動社" style="max-width: 90%; height: auto; max-height: 100px; object-fit: contain;">
+      </div>
+      <div class="subtitle">幹部會議匿名投票系統</div>
+    </header>
+
+    <main id="main-content">
+      <!-- Loading State -->
+      <div class="card" id="loading-card" style="text-align: center;">
+        <div class="subtitle">正在連線至投票系統...</div>
+      </div>
+
+      <!-- Active Poll Card -->
+      <div class="card" id="poll-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+          <h2 id="poll-title" style="font-size: 1.4rem; font-weight: 700; line-height: 1.4;">投票主題</h2>
+          <span id="poll-status-badge" class="status-badge">未開放</span>
+        </div>
+        
+        <p id="poll-desc" style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;"></p>
+        
+        <form id="vote-form">
+          <div class="options-list" id="options-container">
+            <!-- Options dynamically inserted here -->
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="submit-vote-btn" style="margin-top: 1.5rem;">
+            送出匿名選票
+          </button>
+        </form>
+      </div>
+
+      <!-- Status Notices (No active poll, draft, voted, closed) -->
+      <div class="card" id="notice-card" style="display: none; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;" id="notice-emoji">⏳</div>
+        <h3 id="notice-title" style="margin-bottom: 0.5rem; font-size: 1.3rem;">請稍候</h3>
+        <p id="notice-desc" style="color: var(--text-muted); line-height: 1.5;"></p>
+      </div>
+    </main>
+
+    <footer>
+      <p>&copy; 2026 國立東華大學跆拳休閒運動社. All rights reserved.</p>
+    </footer>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toast-text"></span>
+  </div>
+
+  <script>
+    // Generate or retrieve unique client token for tracking voting permission while remaining anonymous
+    function getVoterToken() {
+      let token = localStorage.getItem('ndhu_voter_token');
+      if (!token) {
+        token = 'token-' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        localStorage.setItem('ndhu_voter_token', token);
+      }
+      return token;
+    }
+
+    const voterToken = getVoterToken();
+    let currentPollId = null;
+    let pollInterval = null;
+
+    // Toast show helper
+    function showToast(message, isError = false) {
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toast-text');
+      toastText.innerText = message;
+      if (isError) {
+        toast.classList.add('error');
+      } else {
+        toast.classList.remove('error');
+      }
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 3000);
+    }
+
+    // Main fetch loop for active poll
+    async function fetchActivePoll() {
+      try {
+        const response = await fetch(`/api/poll/active?token=${voterToken}`);
+        if (!response.ok) throw new Error('連線失敗');
+        const data = await response.json();
+        
+        document.getElementById('loading-card').style.display = 'none';
+
+        if (!data.poll) {
+          showNotice('📭', '目前無進行中的投票', '管理員尚未啟動任何投票主題，請等待主持人通知。');
+          currentPollId = null;
+          return;
+        }
+
+        const poll = data.poll;
+        currentPollId = poll.id;
+
+        // Render based on poll status & voter status
+        if (poll.hasVoted) {
+          showNotice('✅', '您已完成投票', '選票已成功以匿名方式送出！請等待主持人公佈最後統計結果。');
+        } else if (poll.status === 'draft') {
+          showNotice('⏳', '投票準備中', `主題：「${poll.title}」已設定，請等待主持人開啟投票通道。`);
+        } else if (poll.status === 'closed') {
+          showNotice('🔒', '投票已結束', '本項投票通道已關閉，請看向大螢幕公布結果。');
+        } else if (poll.status === 'open') {
+          // Display Voting Screen
+          document.getElementById('notice-card').style.display = 'none';
+          const pollCard = document.getElementById('poll-card');
+          pollCard.style.display = 'block';
+
+          // Update contents if it's new
+          document.getElementById('poll-title').innerText = poll.title;
+          document.getElementById('poll-desc').innerText = poll.description;
+
+          const badge = document.getElementById('poll-status-badge');
+          badge.className = 'status-badge open';
+          badge.innerText = '進行中';
+
+          // Render options if container is empty or options changed
+          const container = document.getElementById('options-container');
+          if (container.dataset.pollId !== poll.id) {
+            container.dataset.pollId = poll.id;
+            container.innerHTML = '';
+            poll.options.forEach((opt, idx) => {
+              const label = document.createElement('label');
+              label.className = 'option-card';
+              label.innerHTML = `
+                <input type="radio" name="vote-option" value="${idx}">
+                <span class="radio-custom"></span>
+                <span class="option-text">${opt}</span>
+              `;
+              container.appendChild(label);
+            });
+          }
+        }
+      } catch (err) {
+        console.error(err);
+        document.getElementById('loading-card').style.display = 'none';
+        showNotice('📡', '網路連線異常', '無法連線至社團投票伺服器，請確認您已連上幹部會議 Wi-Fi。');
+      }
+    }
+
+    function showNotice(emoji, title, desc) {
+      document.getElementById('poll-card').style.display = 'none';
+      const noticeCard = document.getElementById('notice-card');
+      noticeCard.style.display = 'block';
+      document.getElementById('notice-emoji').innerText = emoji;
+      document.getElementById('notice-title').innerText = title;
+      document.getElementById('notice-desc').innerText = desc;
+    }
+
+    // Submit vote form
+    document.getElementById('vote-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const selected = document.querySelector('input[name="vote-option"]:checked');
+      if (!selected) {
+        showToast('請先選擇一個選項！', true);
+        return;
+      }
+
+      const optionIndex = selected.value;
+
+      try {
+        const response = await fetch('/api/poll/vote', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: json = JSON.stringify({
+            pollId: currentPollId,
+            optionIndex: optionIndex,
+            token: voterToken
+          })
+        });
+
+        const result = await response.json();
+        if (response.ok && result.success) {
+          showToast(result.message);
+          fetchActivePoll(); // Refresh UI instantly
+        } else {
+          showToast(result.error || '投票失敗！', true);
+        }
+      } catch (err) {
+        showToast('連線失敗，請稍後重試！', true);
+      }
+    });
+
+    // Initial load and start interval polling
+    fetchActivePoll();
+    pollInterval = setInterval(fetchActivePoll, 3000);
+  </script>
+</body>
+</html>
