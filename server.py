@@ -89,6 +89,9 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
         elif path == '/style.css':
             self.serve_static('style.css', 'text/css; charset=utf-8')
             return
+        elif path == '/logo.png' or path.endswith('.png'):
+            self.serve_static(clean_path, 'image/png')
+            return
 
         # API routing
         if path == '/api/server-info':
