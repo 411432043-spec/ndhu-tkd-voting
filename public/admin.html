@@ -64,11 +64,11 @@
               </div>
 
               <!-- Quick Status Controls -->
-              <div style="display: flex; gap: 8px; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
                 <button class="btn btn-secondary" onclick="setPollStatus('draft')">準備中</button>
                 <button class="btn btn-primary" onclick="setPollStatus('open')">開啟投票</button>
                 <button class="btn btn-accent" onclick="setPollStatus('closed')">關閉通道</button>
-                <button class="btn btn-danger" onclick="resetActivePoll()" style="margin-left: auto;">清空選票</button>
+                <button class="btn btn-danger" onclick="resetActivePoll()">清空選票</button>
               </div>
             </div>
 
