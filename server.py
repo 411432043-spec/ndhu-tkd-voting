@@ -20,7 +20,7 @@ polls = [
         "votedTokens": []
     }
 ]
-active_poll_id = "poll-1"
+active_poll_id = None
 ADMIN_TOKEN = "ndhu-tkd-admin-secret-token-8888"
 
 def get_local_ip():
