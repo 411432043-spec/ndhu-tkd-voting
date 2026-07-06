@@ -17,7 +17,8 @@ polls = [
         "options": ["同意", "不同意", "無意見"],
         "status": "draft",  # "draft" | "open" | "closed"
         "votes": [0, 0, 0],
-        "votedTokens": []
+        "votedTokens": [],
+        "timerEndTime": None
     }
 ]
 active_poll_id = None
@@ -113,6 +114,12 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             global active_poll_id
             active_poll = next((p for p in polls if p["id"] == active_poll_id), None)
             
+            import time
+            if active_poll and active_poll["status"] == "open" and active_poll.get("timerEndTime"):
+                if time.time() * 1000 > active_poll["timerEndTime"]:
+                    active_poll["status"] = "closed"
+                    active_poll["timerEndTime"] = None
+
             if not active_poll:
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -122,6 +129,10 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
 
             has_voted = client_token in active_poll["votedTokens"] if client_token else False
             
+            remaining_seconds = 0
+            if active_poll and active_poll.get("timerEndTime"):
+                remaining_seconds = max(0, int((active_poll["timerEndTime"] - time.time() * 1000) / 1000))
+
             poll_data = {
                 "poll": {
                     "id": active_poll["id"],
@@ -129,7 +140,9 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                     "description": active_poll["description"],
                     "options": active_poll["options"],
                     "status": active_poll["status"],
-                    "hasVoted": has_voted
+                    "hasVoted": has_voted,
+                    "timerEndTime": active_poll.get("timerEndTime"),
+                    "remainingSeconds": remaining_seconds
                 }
             }
             self.send_response(200)
@@ -150,7 +163,13 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
         elif path == '/api/admin/results':
             if not self.check_admin_auth():
                 return
+            import time
             active_poll = next((p for p in polls if p["id"] == active_poll_id), None)
+            if active_poll and active_poll["status"] == "open" and active_poll.get("timerEndTime"):
+                if time.time() * 1000 > active_poll["timerEndTime"]:
+                    active_poll["status"] = "closed"
+                    active_poll["timerEndTime"] = None
+
             if not active_poll:
                 self.send_response(404)
                 self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -158,11 +177,18 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "目前無啟用中的投票！"}).encode('utf-8'))
                 return
 
+            remaining_seconds = 0
+            if active_poll and active_poll.get("timerEndTime"):
+                remaining_seconds = max(0, int((active_poll["timerEndTime"] - time.time() * 1000) / 1000))
+
             results = {
                 "title": active_poll["title"],
                 "options": active_poll["options"],
                 "votes": active_poll["votes"],
-                "totalVotes": len(active_poll["votedTokens"])
+                "totalVotes": len(active_poll["votedTokens"]),
+                "status": active_poll["status"],
+                "timerEndTime": active_poll.get("timerEndTime"),
+                "remainingSeconds": remaining_seconds
             }
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -291,7 +317,8 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 "options": cleaned_options,
                 "status": "draft",
                 "votes": [0] * len(cleaned_options),
-                "votedTokens": []
+                "votedTokens": [],
+                "timerEndTime": None
             }
             polls.append(new_poll)
             
@@ -381,6 +408,15 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             poll["status"] = status
+            
+            # Setup timer if open status has duration
+            duration = data.get('duration')
+            if status == 'open' and duration and int(duration) > 0:
+                import time
+                poll["timerEndTime"] = int((time.time() + int(duration)) * 1000)
+            else:
+                poll["timerEndTime"] = None
+
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()

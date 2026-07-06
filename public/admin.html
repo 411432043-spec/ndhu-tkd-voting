@@ -54,17 +54,30 @@
 
               <div id="results-container">
                 <h2 id="active-title" style="font-size: 1.25rem; margin-bottom: 0.5rem;">未設定啟用投票</h2>
-                <div id="results-stats" style="margin-bottom: 1.5rem; color: var(--text-muted);">
-                  總投票人數: <span id="total-voters" style="color: var(--color-primary); font-weight: bold;">0</span> 人
+                <div id="results-stats" style="margin-bottom: 1.5rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                  <div>總投票人數: <span id="total-voters" style="color: var(--color-primary); font-weight: bold;">0</span> 人</div>
+                  <div id="admin-timer-display" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 50px; color: #f87171; font-weight: 600; font-size: 0.85rem;">⏰ 剩餘 00:00</div>
                 </div>
 
                 <div id="results-bars-list">
                   <!-- Bars render here -->
                 </div>
               </div>
-
+              
+              <!-- Timer Selector -->
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem; gap: 12px;">
+                <label for="vote-duration-select" style="margin-bottom: 0; font-weight: 500; font-size: 0.95rem; color: var(--text-muted);">⏱️ 設定本次投票時限：</label>
+                <select id="vote-duration-select" style="padding: 0.5rem 1rem; border-radius: 10px; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); color: var(--text-main); font-family: var(--font-sans); font-size: 0.95rem; outline: none;">
+                  <option value="0">⏳ 不設限</option>
+                  <option value="30">30 秒</option>
+                  <option value="60">1 分鐘</option>
+                  <option value="120">2 分鐘</option>
+                  <option value="300">5 分鐘</option>
+                </select>
+              </div>
+ 
               <!-- Quick Status Controls -->
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 2rem; border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 1rem;">
                 <button class="btn btn-secondary" onclick="setPollStatus('draft')">準備中</button>
                 <button class="btn btn-primary" onclick="setPollStatus('open')">開啟投票</button>
                 <button class="btn btn-accent" onclick="setPollStatus('closed')">關閉通道</button>
@@ -338,11 +351,23 @@
         if (!response.ok) {
           document.getElementById('active-title').innerText = '未設定啟用投票';
           document.getElementById('total-voters').innerText = '0';
+          document.getElementById('admin-timer-display').style.display = 'none';
           document.getElementById('results-bars-list').innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 2rem 0;">請在下方選擇一個投票主題並點擊「設為啟用」！</div>';
           return;
         }
 
         const data = await response.json();
+
+        // Show admin countdown if open and timer is running
+        const timerDisplay = document.getElementById('admin-timer-display');
+        if (data.remainingSeconds > 0 && data.status === 'open') {
+          timerDisplay.style.display = 'inline-block';
+          const min = Math.floor(data.remainingSeconds / 60);
+          const sec = data.remainingSeconds % 60;
+          timerDisplay.innerText = `⏰ 剩餘 ${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+        } else {
+          timerDisplay.style.display = 'none';
+        }
 
         document.getElementById('active-title').innerText = data.title;
         document.getElementById('total-voters').innerText = data.totalVotes;
@@ -431,13 +456,16 @@
           return;
         }
 
+        const durationSelect = document.getElementById('vote-duration-select');
+        const duration = durationSelect ? durationSelect.value : 0;
+
         const response = await fetch(`/api/admin/polls/${activeId}/status`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${adminToken}`
           },
-          body: JSON.stringify({ status })
+          body: JSON.stringify({ status, duration })
         });
 
         if (response.ok) {

@@ -30,6 +30,17 @@
         
         <p id="poll-desc" style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;"></p>
         
+        <!-- Timer Bar -->
+        <div id="voter-timer-container" style="display: none; margin-bottom: 1.5rem; background: rgba(255,255,255,0.02); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">⏰ 剩餘投票時間</span>
+            <span id="voter-timer-text" style="font-size: 1rem; font-weight: 700; color: var(--color-accent);">00:00</span>
+          </div>
+          <div style="height: 6px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden;">
+            <div id="voter-timer-progress" style="height: 100%; width: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-accent)); transition: width 1s linear;"></div>
+          </div>
+        </div>
+        
         <form id="vote-form">
           <div class="options-list" id="options-container">
             <!-- Options dynamically inserted here -->
@@ -72,6 +83,40 @@
     const voterToken = getVoterToken();
     let currentPollId = null;
     let pollInterval = null;
+    let countdownInterval = null;
+    let localRemainingSeconds = 0;
+    let totalTimerDuration = 0;
+
+    function startLocalCountdown(seconds) {
+      if (countdownInterval) clearInterval(countdownInterval);
+      
+      localRemainingSeconds = seconds;
+      if (!totalTimerDuration || seconds > totalTimerDuration) {
+        totalTimerDuration = seconds;
+      }
+      
+      updateTimerUI();
+      
+      countdownInterval = setInterval(() => {
+        localRemainingSeconds--;
+        if (localRemainingSeconds <= 0) {
+          clearInterval(countdownInterval);
+          document.getElementById('voter-timer-container').style.display = 'none';
+          fetchActivePoll();
+        } else {
+          updateTimerUI();
+        }
+      }, 1000);
+    }
+
+    function updateTimerUI() {
+      const min = Math.floor(localRemainingSeconds / 60);
+      const sec = localRemainingSeconds % 60;
+      document.getElementById('voter-timer-text').innerText = `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+      
+      const percent = totalTimerDuration > 0 ? (localRemainingSeconds / totalTimerDuration) * 100 : 0;
+      document.getElementById('voter-timer-progress').style.width = `${percent}%`;
+    }
 
     // Toast show helper
     function showToast(message, isError = false) {
@@ -109,16 +154,32 @@
 
         // Render based on poll status & voter status
         if (poll.hasVoted) {
+          if (countdownInterval) clearInterval(countdownInterval);
+          document.getElementById('voter-timer-container').style.display = 'none';
           showNotice('✅', '您已完成投票', '選票已成功以匿名方式送出！請等待主持人公佈最後統計結果。');
         } else if (poll.status === 'draft') {
+          if (countdownInterval) clearInterval(countdownInterval);
+          document.getElementById('voter-timer-container').style.display = 'none';
           showNotice('⏳', '投票準備中', `主題：「${poll.title}」已設定，請等待主持人開啟投票通道。`);
         } else if (poll.status === 'closed') {
+          if (countdownInterval) clearInterval(countdownInterval);
+          document.getElementById('voter-timer-container').style.display = 'none';
           showNotice('🔒', '投票已結束', '本項投票通道已關閉，請看向大螢幕公布結果。');
         } else if (poll.status === 'open') {
           // Display Voting Screen
           document.getElementById('notice-card').style.display = 'none';
           const pollCard = document.getElementById('poll-card');
           pollCard.style.display = 'block';
+
+          // Update Timer UI
+          if (poll.remainingSeconds > 0) {
+            document.getElementById('voter-timer-container').style.display = 'block';
+            startLocalCountdown(poll.remainingSeconds);
+          } else {
+            document.getElementById('voter-timer-container').style.display = 'none';
+            if (countdownInterval) clearInterval(countdownInterval);
+            totalTimerDuration = 0;
+          }
 
           // Update contents if it's new
           document.getElementById('poll-title').innerText = poll.title;
