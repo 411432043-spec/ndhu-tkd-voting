@@ -77,6 +77,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(500, f"Server error: {str(e)}")
 
     def do_GET(self):
+        global meeting_password
         url_parsed = urllib.parse.urlparse(self.path)
         path = url_parsed.path
         query = urllib.parse.parse_qs(url_parsed.query)
@@ -131,7 +132,6 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             has_voted = client_token in active_poll["votedTokens"] if client_token else False
             
             # Verify meeting password if set
-            global meeting_password
             client_password = self.headers.get('X-Meeting-Password', '')
             password_required = meeting_password != ""
             password_correct = not password_required or client_password == meeting_password
@@ -177,7 +177,6 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            global meeting_password
             self.wfile.write(json.dumps({
                 "polls": polls, 
                 "activePollId": active_poll_id,
