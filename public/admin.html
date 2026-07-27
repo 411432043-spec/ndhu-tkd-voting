@@ -258,9 +258,13 @@
     }
 
     // Initial check on page load
-    if (adminToken) {
-      initDashboard();
-    }
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.location.search.includes('present=true') && !adminToken) {
+        document.getElementById('login-card').style.display = 'block';
+      } else if (adminToken) {
+        initDashboard();
+      }
+    });
 
     function initDashboard() {
       // Check if we are in presentation mode
