@@ -123,6 +123,20 @@
           <!-- Right Column: System Status, Connection, Poll List -->
           <div style="display: flex; flex-direction: column; gap: 1.5rem;">
             
+            <!-- Meeting Password Control -->
+            <div class="card">
+              <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
+                🔑 会議投票密碼
+              </h3>
+              <form id="meeting-password-form" style="display: flex; gap: 8px;">
+                <input type="text" id="meeting-password-display" placeholder="未設定（公開投票）" style="flex-grow: 1; padding: 0.5rem 1rem; font-size: 0.95rem; background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-main);">
+                <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1.2rem; font-size: 0.9rem;">設定</button>
+              </form>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                設定密碼後，幹部需輸入密碼才能進入投票畫面。留空並點選設定可取消密碼。
+              </p>
+            </div>
+            
             <!-- Connection & QR -->
             <div class="card">
               <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem;">
@@ -296,6 +310,12 @@
         });
         if (response.status === 401) return logout();
         const data = await response.json();
+
+        // Update meeting password display if not currently focused
+        const passwordInput = document.getElementById('meeting-password-display');
+        if (passwordInput && !passwordInput.dataset.userInteracted) {
+          passwordInput.value = data.meetingPassword || '';
+        }
 
         const container = document.getElementById('polls-list');
         container.innerHTML = '';
@@ -535,6 +555,42 @@
         showToast('清空失敗！', true);
       }
     }
+
+    // Meeting password update
+    document.getElementById('meeting-password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('meeting-password-display').value;
+      
+      try {
+        const response = await fetch('/api/admin/meeting-password', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ password })
+        });
+        
+        if (response.ok) {
+          showToast(password ? '會議密碼設定成功！' : '會議密碼已清除！');
+          fetchPolls();
+        } else {
+          showToast('密碼修改失敗！', true);
+        }
+      } catch (err) {
+        showToast('修改連線失敗！', true);
+      }
+    });
+
+    // Mark that user is typing so we don't overwrite their input during periodic poll fetches
+    document.getElementById('meeting-password-display').addEventListener('focus', () => {
+      document.getElementById('meeting-password-display').dataset.userInteracted = "true";
+    });
+    document.getElementById('meeting-password-display').addEventListener('blur', () => {
+      setTimeout(() => {
+        delete document.getElementById('meeting-password-display').dataset.userInteracted;
+      }, 5000); // clear after 5s
+    });
   </script>
 </body>
 </html>

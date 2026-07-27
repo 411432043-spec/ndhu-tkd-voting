@@ -51,6 +51,21 @@
         </form>
       </div>
 
+      <!-- Password Protection Card -->
+      <div class="card" id="password-card" style="display: none; max-width: 400px; margin: 2rem auto;">
+        <div style="font-size: 3rem; margin-bottom: 1rem; text-align: center;">🔑</div>
+        <h3 style="margin-bottom: 1rem; font-size: 1.3rem; text-align: center;">請輸入會議投票密碼</h3>
+        <p style="color: var(--text-muted); font-size: 0.9rem; text-align: center; margin-bottom: 1.5rem;">此投票受到密碼保護，請輸入主持人提供的密碼以繼續。</p>
+        <form id="password-form">
+          <div class="form-group">
+            <input type="password" id="meeting-password-input" required placeholder="請輸入會議密碼" style="text-align: center;">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" style="margin-top: 1rem;">
+            驗證並進入投票
+          </button>
+        </form>
+      </div>
+
       <!-- Status Notices (No active poll, draft, voted, closed) -->
       <div class="card" id="notice-card" style="display: none; text-align: center;">
         <div style="font-size: 3rem; margin-bottom: 1rem;" id="notice-emoji">⏳</div>
@@ -137,11 +152,27 @@
     // Main fetch loop for active poll
     async function fetchActivePoll() {
       try {
-        const response = await fetch(`/api/poll/active?token=${voterToken}`);
+        const savedPassword = sessionStorage.getItem('ndhu_meeting_password') || '';
+        const response = await fetch(`/api/poll/active?token=${voterToken}`, {
+          headers: {
+            'X-Meeting-Password': savedPassword
+          }
+        });
         if (!response.ok) throw new Error('連線失敗');
         const data = await response.json();
         
         document.getElementById('loading-card').style.display = 'none';
+
+        // Check if password required
+        if (data.passwordRequired && !data.passwordCorrect) {
+          document.getElementById('poll-card').style.display = 'none';
+          document.getElementById('notice-card').style.display = 'none';
+          document.getElementById('password-card').style.display = 'block';
+          currentPollId = null;
+          return;
+        } else {
+          document.getElementById('password-card').style.display = 'none';
+        }
 
         if (!data.poll) {
           showNotice('📭', '目前無進行中的投票', '管理員尚未啟動任何投票主題，請等待主持人通知。');
@@ -234,12 +265,14 @@
       const optionIndex = selected.value;
 
       try {
+        const savedPassword = sessionStorage.getItem('ndhu_meeting_password') || '';
         const response = await fetch('/api/poll/vote', {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'X-Meeting-Password': savedPassword
           },
-          body: json = JSON.stringify({
+          body: JSON.stringify({
             pollId: currentPollId,
             optionIndex: optionIndex,
             token: voterToken
@@ -255,6 +288,31 @@
         }
       } catch (err) {
         showToast('連線失敗，請稍後重試！', true);
+      }
+    });
+
+    // Password form submit
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('meeting-password-input').value;
+      
+      try {
+        const response = await fetch('/api/poll/verify-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        
+        const result = await response.json();
+        if (response.ok && result.success) {
+          sessionStorage.setItem('ndhu_meeting_password', password);
+          showToast('密碼驗證成功！');
+          fetchActivePoll();
+        } else {
+          showToast(result.error || '密碼錯誤！', true);
+        }
+      } catch (err) {
+        showToast('驗證連線失敗！', true);
       }
     });
 

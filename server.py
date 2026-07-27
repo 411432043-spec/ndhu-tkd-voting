@@ -23,6 +23,7 @@ polls = [
 ]
 active_poll_id = None
 ADMIN_TOKEN = "ndhu-tkd-admin-secret-token-8888"
+meeting_password = ""
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -129,6 +130,23 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
 
             has_voted = client_token in active_poll["votedTokens"] if client_token else False
             
+            # Verify meeting password if set
+            global meeting_password
+            client_password = self.headers.get('X-Meeting-Password', '')
+            password_required = meeting_password != ""
+            password_correct = not password_required or client_password == meeting_password
+
+            if password_required and not password_correct:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({
+                    "passwordRequired": True,
+                    "passwordCorrect": False,
+                    "poll": None
+                }).encode('utf-8'))
+                return
+
             remaining_seconds = 0
             if active_poll and active_poll.get("timerEndTime"):
                 remaining_seconds = max(0, int((active_poll["timerEndTime"] - time.time() * 1000) / 1000))
@@ -142,7 +160,9 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                     "status": active_poll["status"],
                     "hasVoted": has_voted,
                     "timerEndTime": active_poll.get("timerEndTime"),
-                    "remainingSeconds": remaining_seconds
+                    "remainingSeconds": remaining_seconds,
+                    "passwordRequired": password_required,
+                    "passwordCorrect": True
                 }
             }
             self.send_response(200)
@@ -157,7 +177,12 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
-            self.wfile.write(json.dumps({"polls": polls, "activePollId": active_poll_id}).encode('utf-8'))
+            global meeting_password
+            self.wfile.write(json.dumps({
+                "polls": polls, 
+                "activePollId": active_poll_id,
+                "meetingPassword": meeting_password
+            }).encode('utf-8'))
             return
 
         elif path == '/api/admin/results':
@@ -232,6 +257,16 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             return
 
         elif path == '/api/poll/vote':
+            # Verify meeting password if set
+            global meeting_password
+            client_password = self.headers.get('X-Meeting-Password', '')
+            if meeting_password != "" and client_password != meeting_password:
+                self.send_response(403)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "會議密碼錯誤，拒絕投票！"}).encode('utf-8'))
+                return
+
             poll_id = data.get('pollId')
             option_index = data.get('optionIndex')
             token = data.get('token')
@@ -326,6 +361,32 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json; charset=utf-8')
             self.end_headers()
             self.wfile.write(json.dumps(new_poll).encode('utf-8'))
+            return
+
+        elif path == '/api/poll/verify-password':
+            client_password = data.get('password', '')
+            global meeting_password
+            if meeting_password == "" or client_password == meeting_password:
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+            else:
+                self.send_response(401)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": "會議密碼錯誤！"}).encode('utf-8'))
+            return
+
+        elif path == '/api/admin/meeting-password':
+            if not self.check_admin_auth():
+                return
+            global meeting_password
+            meeting_password = data.get('password', '').strip()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True, "password": meeting_password}).encode('utf-8'))
             return
 
         elif path.startswith('/api/admin/polls/') and path.endswith('/reset'):
