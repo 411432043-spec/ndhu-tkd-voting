@@ -50,7 +50,8 @@
               <h3 style="margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
                 <span>📊 當前啟用投票結果</span>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <button class="btn btn-secondary" onclick="toggleFullscreenResults()" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 8px; font-weight: 500;">🖥️ 全螢幕投影</button>
+                  <button class="btn btn-secondary" onclick="openPresentationWindow()" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 8px; font-weight: 500;">↗️ 新視窗開啟</button>
+                  <button class="btn btn-secondary" onclick="toggleFullscreenResults()" style="padding: 4px 8px; font-size: 0.8rem; border-radius: 8px; font-weight: 500;">🖥️ 本頁全螢幕</button>
                   <span id="active-poll-badge" class="status-badge">載入中</span>
                 </div>
               </h3>
@@ -262,6 +263,26 @@
     }
 
     function initDashboard() {
+      // Check if we are in presentation mode
+      if (window.location.search.includes('present=true')) {
+        document.getElementById('login-card').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'none';
+        
+        const overlay = document.getElementById('fullscreen-overlay');
+        overlay.style.display = 'flex';
+        
+        const closeBtn = overlay.querySelector('button');
+        if (closeBtn) {
+          closeBtn.innerText = '❌ 關閉分頁';
+          closeBtn.onclick = () => window.close();
+        }
+        
+        fetchResults();
+        if (resultsInterval) clearInterval(resultsInterval);
+        resultsInterval = setInterval(fetchResults, 1500);
+        return;
+      }
+
       document.getElementById('login-card').style.display = 'none';
       document.getElementById('dashboard').style.display = 'block';
       
@@ -584,6 +605,10 @@
         overlay.msRequestFullscreen().catch(() => {});
       }
       fetchResults(); // load fresh data
+    }
+
+    function openPresentationWindow() {
+      window.open('/admin?present=true', '_blank', 'width=1100,height=750,toolbar=no,menubar=no,scrollbars=yes');
     }
 
     function closeFullscreenResults() {
