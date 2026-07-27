@@ -409,6 +409,17 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps({"success": True, "poll": poll}).encode('utf-8'))
             return
 
+        elif path == '/api/admin/polls/deactivate':
+            if not self.check_admin_auth():
+                return
+            global active_poll_id
+            active_poll_id = None
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json; charset=utf-8')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+            return
+
         self.send_error(404, "Not Found")
 
     def do_PUT(self):
