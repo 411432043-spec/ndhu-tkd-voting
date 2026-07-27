@@ -229,6 +229,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
         self.send_error(404, "Not Found")
 
     def do_POST(self):
+        global meeting_password
         url_parsed = urllib.parse.urlparse(self.path)
         path = url_parsed.path
 
@@ -364,7 +365,6 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
 
         elif path == '/api/poll/verify-password':
             client_password = data.get('password', '')
-            global meeting_password
             if meeting_password == "" or client_password == meeting_password:
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -380,7 +380,6 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
         elif path == '/api/admin/meeting-password':
             if not self.check_admin_auth():
                 return
-            global meeting_password
             meeting_password = data.get('password', '').strip()
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
