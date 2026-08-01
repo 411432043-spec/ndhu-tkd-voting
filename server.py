@@ -216,8 +216,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 "totalVotes": len(active_poll["votedTokens"]),
                 "status": active_poll["status"],
                 "timerEndTime": active_poll.get("timerEndTime"),
-                "remainingSeconds": remaining_seconds,
-                "votedStudentIds": active_poll.get("votedStudentIds", [])
+                "remainingSeconds": remaining_seconds
             }
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
