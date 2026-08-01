@@ -67,6 +67,17 @@
                   <!-- Bars render here -->
                 </div>
               </div>
+
+              <!-- List of voted student IDs -->
+              <div id="voted-students-card" style="margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem; display: none;">
+                <h4 style="font-size: 0.92rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                  <span>🗳️ 已投票學號簽到名單</span>
+                  <span><span id="voted-students-count" style="color: var(--color-primary); font-weight: bold;">0</span> 人已投</span>
+                </h4>
+                <div id="voted-students-list" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 80px; overflow-y: auto; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 8px; font-size: 0.8rem; font-family: monospace; color: #a7f3d0; border: 1px solid var(--border-color);">
+                  <!-- Student IDs listed here -->
+                </div>
+              </div>
               
               <!-- Timer Selector -->
               <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 1.5rem; border-top: 1px solid var(--border-color); padding-top: 1rem; gap: 12px;">
@@ -401,6 +412,7 @@
           document.getElementById('active-title').innerText = '未設定啟用投票';
           document.getElementById('total-voters').innerText = '0';
           document.getElementById('admin-timer-display').style.display = 'none';
+          document.getElementById('voted-students-card').style.display = 'none';
           document.getElementById('results-bars-list').innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 2rem 0;">請在下方選擇一個投票主題並點擊「設為啟用」！</div>';
           
           if (document.getElementById('fs-title')) {
@@ -455,6 +467,25 @@
           `;
           listContainer.appendChild(row);
         });
+
+        // Render voted student IDs
+        const votedCard = document.getElementById('voted-students-card');
+        const votedList = document.getElementById('voted-students-list');
+        const votedCount = document.getElementById('voted-students-count');
+        
+        if (votedCard && votedList && votedCount) {
+          if (data.votedStudentIds && data.votedStudentIds.length > 0) {
+            votedCard.style.display = 'block';
+            votedCount.innerText = data.votedStudentIds.length;
+            votedList.innerHTML = data.votedStudentIds.map(sid => `
+              <span style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); padding: 2px 6px; border-radius: 4px;">${sid}</span>
+            `).join('');
+          } else {
+            votedCard.style.display = 'block';
+            votedCount.innerText = '0';
+            votedList.innerHTML = '<span style="color: var(--text-muted); font-size: 0.8rem;">尚未有任何學號投下選票</span>';
+          }
+        }
 
         // Update Fullscreen projection if it exists
         updateFullscreenData(data);

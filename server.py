@@ -18,6 +18,7 @@ polls = [
         "status": "draft",  # "draft" | "open" | "closed"
         "votes": [0, 0, 0],
         "votedTokens": [],
+        "votedStudentIds": [],
         "timerEndTime": None
     }
 ]
@@ -129,7 +130,10 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"poll": None}).encode('utf-8'))
                 return
 
-            has_voted = client_token in active_poll["votedTokens"] if client_token else False
+            student_list = query.get('studentId', [''])
+            student_id = student_list[0].strip().upper() if student_list else ''
+            
+            has_voted = (client_token in active_poll["votedTokens"]) or (student_id and student_id in active_poll.get("votedStudentIds", []))
             
             # Verify meeting password if set
             client_password = self.headers.get('X-Meeting-Password', '')
@@ -212,7 +216,8 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 "totalVotes": len(active_poll["votedTokens"]),
                 "status": active_poll["status"],
                 "timerEndTime": active_poll.get("timerEndTime"),
-                "remainingSeconds": remaining_seconds
+                "remainingSeconds": remaining_seconds,
+                "votedStudentIds": active_poll.get("votedStudentIds", [])
             }
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -270,6 +275,14 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             poll_id = data.get('pollId')
             option_index = data.get('optionIndex')
             token = data.get('token')
+            student_id = data.get('studentId', '').strip().upper()
+
+            if not student_id:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "學號為必填驗證欄位！"}).encode('utf-8'))
+                return
 
             if not token:
                 self.send_response(400)
@@ -300,6 +313,13 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": "您在此投票中已經投過票囉！"}).encode('utf-8'))
                 return
 
+            if student_id in poll.get("votedStudentIds", []):
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json; charset=utf-8')
+                self.end_headers()
+                self.wfile.write(json.dumps({"error": "此學號已進行過本次表決，請勿重複投票！"}).encode('utf-8'))
+                return
+
             try:
                 idx = int(option_index)
             except (TypeError, ValueError):
@@ -315,6 +335,9 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
             # Record vote anonymously
             poll["votes"][idx] += 1
             poll["votedTokens"].append(token)
+            if "votedStudentIds" not in poll:
+                poll["votedStudentIds"] = []
+            poll["votedStudentIds"].append(student_id)
 
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
@@ -353,6 +376,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
                 "status": "draft",
                 "votes": [0] * len(cleaned_options),
                 "votedTokens": [],
+                "votedStudentIds": [],
                 "timerEndTime": None
             }
             polls.append(new_poll)
@@ -402,6 +426,7 @@ class VotingHandler(http.server.BaseHTTPRequestHandler):
 
             poll["votes"] = [0] * len(poll["options"])
             poll["votedTokens"] = []
+            poll["votedStudentIds"] = []
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json; charset=utf-8')
